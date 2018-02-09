@@ -61,12 +61,12 @@ const bool p_motor_direction = false;
 const bool p_motor_speed = false;
 const bool p_IR = true;
 const bool p_observed_thresh = false;
-const bool p_observed = true;
-const bool p_l_observed = true;
+const bool p_observed = false;
+const bool p_l_observed = false;
 const bool p_neo_deltas = false;
-const bool p_current_colors = false;
-const bool p_target_colors = false;
-const bool p_glass_states = true;
+const bool p_current_colors = true;
+const bool p_target_colors = true;
+const bool p_glass_states = false;
 const bool p_time = false;
 
 const bool p_text = true;
@@ -160,7 +160,7 @@ const int motor_min_speed = 85;
   Adafruit_NeoPixel lights = Adafruit_NeoPixel(17 * 4, 6);//, 6, NEO_GRB + NEO_KHZ800); // floor 17*4
   Adafruit_NeoPixel lights = Adafruit_NeoPixel(10 * 4, 7);//, 7, NEO_GRB + NEO_KHZ800); // roof 10*4
 */
-Adafruit_NeoPixel lights = Adafruit_NeoPixel(68 + 16 + 40, 5); //, 7, NEO_GRB + NEO_KHZ800); // roof 10*4
+Adafruit_NeoPixel lights = Adafruit_NeoPixel(68 + 16 + 20, 5); //, 7, NEO_GRB + NEO_KHZ800); // roof 10*4
 
 int neo_colors[9] = {
   int(random(120.0)),
@@ -288,14 +288,8 @@ void detectVisitor() {
       // announce that the attention was lost...
       if (p_text == true) {
         Serial.print("attention lost for obs : ");
-      };
-      if (p_text == true) {
         Serial.print(i);
-      };
-      if (p_text == true) {
         Serial.print(" : ");
-      };
-      if (p_text == true) {
         Serial.println(now);
       };
     }
@@ -546,7 +540,9 @@ void loop() {
       Serial.println("ENTERING INTO ACTIVE STATE");
     };
     setNeoDeltas(1); // set neo Deltas to 1 so they climb up to 255
-    while (neo_colors[0] < 255 && neo_colors[1] < 255 && neo_colors[2] < 255) {
+    while (neo_colors[0] < 255 || neo_colors[1] < 255 || neo_colors[2] < 255 ||
+            neo_colors[3] < 255 || neo_colors[4] < 255 || neo_colors[5] < 255 ||
+            neo_colors[6] < 255 || neo_colors[7] < 255 || neo_colors[8] < 255) {
       moveToWhite();
       pollIRs(true); // this might cause trouble...
       now = millis();
