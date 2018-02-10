@@ -54,21 +54,23 @@
 
 int state = 0;
 unsigned long last_state_change = 0;
+// behavior
+const int subversive = 1; // if 1 then motor will always move wrong way // -1 will move the correct way
+
 
 ////////// DEBUG and Print settings //////////
 const bool p_state = false;
-const bool p_motor_direction = false;
-const bool p_motor_speed = false;
+const bool p_motor_direction = true;
+const bool p_motor_speed = true;
 const bool p_IR = true;
 const bool p_observed_thresh = false;
-const bool p_observed = false;
+const bool p_observed = true;
 const bool p_l_observed = false;
 const bool p_neo_deltas = false;
-const bool p_current_colors = true;
-const bool p_target_colors = true;
+const bool p_current_colors = false;
+const bool p_target_colors = false;
 const bool p_glass_states = false;
 const bool p_time = false;
-
 const bool p_text = true;
 
 ////////// Smart Glass //////////////////
@@ -202,7 +204,7 @@ void setupTests() {
     Serial.println("testing glass");
   };
   testGlass(200);
-  testGlass(1000);
+  testGlass(500);
   if (p_text == true) {
     Serial.println("testing lights");
   };
@@ -281,7 +283,7 @@ void detectVisitor() {
   // for each IR sensor....
   for (int i = 0; i < sizeof(ir_pins) / sizeof(int); i++) {
     // if x time has passed since presence was lost and the glass is on
-    if (now > time_last_observed[i] + attention_span && glass_states[i] == 0) {
+    if (now > time_last_observed[i] + attention_span && glass_states[i] == 0 && state == PASSIVE) {
       // make the glass opaque
       glass_states[i] = 1;
       updateSmartGlass();
@@ -507,9 +509,6 @@ void loop() {
     pollIRs(true); // true is for smoothing // have the IR sensors read everything around them
     // checkResetButton(); // check to see if the reset button has been pressed
 
-    /////////// MOTORS /////////////
-    //controlMotor(); // move the motors if someone is detected
-
     ////// CONTROL BOX /////////////
     /*
       if (controllerBox == true) {
@@ -517,7 +516,7 @@ void loop() {
       }; // if the control box is detected, poll the control box...
     */
     ////// MAINTAINANCE ////////////
-    // hourlyAmbiantLightReset(); // once an hour reset the ambiant light levels
+    hourlyAmbiantLightReset(); // once an hour reset the ambiant light levels
 
     /////// DEBUG PRINTING /////////
     printSystemState(); // print, print, print
@@ -541,39 +540,36 @@ void loop() {
     };
     setNeoDeltas(1); // set neo Deltas to 1 so they climb up to 255
     while (neo_colors[0] < 255 || neo_colors[1] < 255 || neo_colors[2] < 255 ||
-            neo_colors[3] < 255 || neo_colors[4] < 255 || neo_colors[5] < 255 ||
-            neo_colors[6] < 255 || neo_colors[7] < 255 || neo_colors[8] < 255) {
+           neo_colors[3] < 255 || neo_colors[4] < 255 || neo_colors[5] < 255 ||
+           neo_colors[6] < 255 || neo_colors[7] < 255 || neo_colors[8] < 255) {
       moveToWhite();
-      pollIRs(true); // this might cause trouble...
+      // pollIRs(true); // this might cause trouble...
       now = millis();
       printSystemState();
-      delay(44);
+      delay(22);
     }
 
     /////////////////////// Turn on all the glass
     if (p_text == true) {
       Serial.println("Making glass transparent");
     };
-    glass_states[0] = 0; // instead I should poll the IR sensors and
-    glass_states[1] = 0;
-    glass_states[2] = 0;
-    updateSmartGlass();
+    transGlass();
     now = millis();
     printSystemState();
     /////////////////////// Get the motor moving
     if (p_text == true) {
       Serial.println("Get the motor moving");
     };
-    analogWrite(motor_back_pin, 0);
-    for (int i = motor_min_speed; i < motor_max_speed; i++) {
-      analogWrite(motor_forward_pin, i);
-      delay(50);
+    while (motor_speed > motor_max_speed * -1 && motor_speed < motor_max_speed) {
+      printSystemState();
+      controlMotor();
+      delay(70);
     }
-    if (p_text == true) {
-      Serial.println("Motor at full speed");
-    };
     // basically wait for 30 seconds while also polling the IR sensors
-    for (int i = 0; i < 300; i++) {
+    if (p_text == true) {
+      Serial.println("Motor Reved up: maintain ON for 20 seconds");
+    };
+    for (int i = 0; i < 200; i++) {
       pollIRs(true);
       now = millis();
       printSystemState();
@@ -587,7 +583,7 @@ void loop() {
       pollIRs(true);
       now = millis();
       printSystemState();
-
+      updateLights();
       if (observed[0] + observed[1] + observed[2] == 0) {
         test = false;
       } else {
@@ -601,14 +597,23 @@ void loop() {
     if (p_text == true) {
       Serial.println("Rev down the motor");
     };
-    for (int i = motor_max_speed; i > motor_min_speed; i--) {
-      analogWrite(motor_forward_pin, i);
-      delay(50);
+    if (motor_speed > 0) {
+      for (int i = motor_max_speed; i > motor_min_speed; i--) {
+        analogWrite(motor_back_pin, 0);
+        analogWrite(motor_forward_pin, i);
+        delay(50);
+      }
+    } else if (motor_speed < 0) {
+      for (int i = motor_max_speed * -1; i < motor_min_speed * -1; i++) {
+        analogWrite(motor_forward_pin, 0);
+        analogWrite(motor_back_pin, i);
+        delay(50);
+      }
     }
     if (p_text == true) {
       Serial.println("Motor off");
     };
-    analogWrite(motor_forward_pin, 0);
+    resetMotor();
     delay(3000);
 
     last_state_change = now;
@@ -616,10 +621,12 @@ void loop() {
     if (p_text == true) {
       Serial.println("Blocking out glass again");
     };
+    /*
     glass_states[0] = 1; // instead I should poll the IR sensors and
     glass_states[1] = 1;
     glass_states[2] = 1;
     updateSmartGlass();
+    */
     if (p_text == true) {
       Serial.println("LEAVING ACTIVE STATE");
     };
@@ -630,5 +637,21 @@ void loop() {
     pollControllerBox();
     controllerBoxControl();
   }
+}
+void resetMotor() {
+    motor_speed = 0;
+    target_motor_speed = 0;
+    motor_direction = 0;
+    analogWrite(motor_forward_pin, 0);
+    analogWrite(motor_back_pin, 0);
+  
+}
+
+
+void transGlass() {
+    glass_states[0] = 0; // instead I should poll the IR sensors and
+    glass_states[1] = 0;
+    glass_states[2] = 0;
+    updateSmartGlass();
 }
 

@@ -10,6 +10,7 @@ void printNeoColors() {
 }
 
 void printSystemState() {
+  now = millis();
   if (now > last_system_print + system_print_delay) {
     /* This function is intended to print out all
        relivent information about the mini-roman
@@ -30,7 +31,8 @@ void printSystemState() {
     if (p_motor_speed == true) {
       Serial.print("speed: ");
       Serial.print(motor_speed);
-      Serial.print(" ");
+      Serial.print("/");
+      Serial.print(target_motor_speed);
     }
     if (p_IR == true) {
       // print out the values of the IR sensors
